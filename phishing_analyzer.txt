@@ -1,15 +1,50 @@
+import requests
+import re
+import json
+import socket
+import whois
+from datetime import datetime
+import tldextract
+import validators
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
+import http.client
+
+# API Keys
+GOOGLE_API_KEY = "YOUR_GOOGLE_API_KEY"
+VT_API_KEY = "YOUR_VT_API_KEY"
+IOC_API_KEY = "YOUR_IOC_API_KEY"
+
+def check_google_safebrowsing(url):
+    # Simulated API Call (Replace with actual request logic)
+    return "Safe"
+
+def check_virustotal(url):
+    # Simulated API Call (Replace with actual request logic)
+    return "Flagged by 3 engines"
+
+def check_ioc_search(url):
+    # Simulated API Call (Replace with actual request logic)
+    return "PhishTank reports as Malicious"
+
+def get_domain_age(domain):
+    # Simulated Domain Age Check
+    return "120 days"
+
+def get_domain_ip(domain):
+    # Simulated Domain IP Check
+    return "192.168.1.1"
 
 def analyze_url():
     url = url_entry.get()
-    # Simulated results from different sources
+    domain = re.sub(r"https?://(www\.)?", "", url).split('/')[0]
+    
     results = [
-        ("Google Safe Browsing", "Safe"),
-        ("VirusTotal", "Flagged by 3 engines"),
-        ("IOC Search", "PhishTank reports as Malicious"),
-        ("Domain Age", "120 days"),
-        ("Domain IP", "192.168.1.1")
+        ("Google Safe Browsing", check_google_safebrowsing(url)),
+        ("VirusTotal", check_virustotal(url)),
+        ("IOC Search", check_ioc_search(url)),
+        ("Domain Age", get_domain_age(domain)),
+        ("Domain IP", get_domain_ip(domain))
     ]
     
     # Clear existing table data
@@ -26,10 +61,10 @@ def setup_ui():
     
     root = tk.Tk()
     root.title("Malicious URL Analyzer")
-    root.geometry("700x400")
+    root.geometry("800x500")
     
     tk.Label(root, text="Enter URL:", font=("Helvetica", 12)).pack(pady=5)
-    url_entry = tk.Entry(root, width=50, font=("Helvetica", 12))
+    url_entry = tk.Entry(root, width=60, font=("Helvetica", 12))
     url_entry.pack(pady=5)
     tk.Button(root, text="Analyze", command=analyze_url).pack(pady=5)
     
