@@ -9,11 +9,17 @@ import validators
 import tkinter as tk
 from tkinter import messagebox
 import http.client
+import os
 
-# API Keys
-GOOGLE_API_KEY = "AIzaSyBoexKhwjgFBqA7hFGoD7hwc9gYmuCaex4"
-VT_API_KEY = "58914edf2c51b13146f794c79b8b5783c9fe02ccf17085137107d6ce26b6d540"
-IOC_API_KEY = "14fd94f931msh7a594545965681cp1f1d88jsna0d931bf194c"
+from dotenv import load_dotenv
+
+# Load secrets from .env file
+load_dotenv()
+
+# Fetch the API keys from environment variables
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+VT_API_KEY = os.getenv("VT_API_KEY")
+IOC_API_KEY = os.getenv("IOC_API_KEY")
 
 # Define suspicious URL patterns
 SUSPICIOUS_PATTERNS = [
@@ -78,21 +84,21 @@ def extract_ip(url):
     match = re.search(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})', url)
     return match.group(0) if match else None
 
-# Check IOC
+#Check IOC
 def check_ioc_search(url):
     domain = re.sub(r"https?://(www\.)?", "", url).split('/')[0]
 
     try:
         ip_address = socket.gethostbyname(domain)
     except socket.gaierror:
-        ip_address = None
+        ip_address = None  
 
     headers = {
-        "x-rapidapi-key": IOC_API_KEY,
+        "x-rapidapi-key": IOC_API_KEY,  
         "x-rapidapi-host": "ioc-search.p.rapidapi.com"
     }
 
-    # Check domain in IOC
+    # **Check domain in IOC**
     domain_endpoint = f"/rapid/v1/ioc/search/domain?query={domain}"
     domain_conn = http.client.HTTPSConnection("ioc-search.p.rapidapi.com")
     domain_conn.request("GET", domain_endpoint, headers=headers)
@@ -103,32 +109,19 @@ def check_ioc_search(url):
         domain_result_json = json.loads(domain_data)
         security_vendor_analysis = domain_result_json.get("data", {}).get("security_vendor_analysis", {})
 
-        malicious_count = 0
-        suspicious_count = 0
-        threat_count = 0
+        # 🛑 **Debugging Step**
+        print("IOC API Response:", domain_data)  
 
-        if security_vendor_analysis:
-            for vendor, analysis in security_vendor_analysis.items():
-                category = analysis.get('category', '').lower()
-                if 'malicious' in category:
-                    malicious_count += 1
-                elif 'suspicious' in category:
-                    suspicious_count += 1
-                elif 'threat' in category:
-                    threat_count +=1
-
-        summary = f"Reports: {malicious_count} malicious, {suspicious_count} suspicious, {threat_count} threat."
-
-        # Check PhishTank
+        # **Check PhishTank**
         if "Phishtank" in security_vendor_analysis and security_vendor_analysis["Phishtank"].get("category") == "malicious":
-            ioc_result = f"⚠️ [IOC Search] Domain {domain} flagged as PHISHING by PhishTank! ({summary})"
+            ioc_result = f"⚠️ [IOC Search] Domain {domain} flagged as PHISHING by PhishTank!"
         else:
-            ioc_result = f"✅ [IOC Search] Domain {domain} is clean. ({summary})"
+            ioc_result = f"✅ [IOC Search] Domain {domain} is clean."
 
     except json.JSONDecodeError:
         ioc_result = f"❌ IOC API Error: Invalid JSON response - {domain_data}"
 
-    # Check IP in IOC
+    # **Check IP in IOC**
     if ip_address:
         ip_endpoint = f"/rapid/v1/ioc/search/ip?query={ip_address}"
         ip_conn = http.client.HTTPSConnection("ioc-search.p.rapidapi.com")
@@ -136,19 +129,20 @@ def check_ioc_search(url):
         ip_response = ip_conn.getresponse()
         ip_data = ip_response.read().decode("utf-8")
 
-        try:
-            ip_result_json = json.loads(ip_data)
-            ip_results = ip_result_json.get("results", [])
-
-            ip_flagged = len(ip_results) > 0
-            ip_result = f"⚠️ [IOC Search] IP {ip_address} is flagged!" if ip_flagged else f"✅ [IOC Search] IP {ip_address} is clean."
-
-        except json.JSONDecodeError:
+        if ip_response.status == 200:
+            if "results" in ip_data:
+                ip_result = f"⚠️ [IOC Search] IP {ip_address} is flagged!"
+            else:
+                if "Phishtank" in security_vendor_analysis and security_vendor_analysis["Phishtank"].get("category") == "malicious":
+                    ip_result = f"⚠️ [IOC Search] IP {ip_address} might be linked to phishing (same as flagged domain)!"
+                else:
+                    ip_result = f"✅ [IOC Search] IP {ip_address} is clean."
+        else:
             ip_result = f"❌ IOC API Error (IP): {ip_response.status} - {ip_data}"
     else:
         ip_result = "⚠️ [IOC Search] No IP found in URL, skipping IOC check."
 
-    # Return both results
+    # **Return both results**
     return f"{ioc_result}\n{ip_result}"
 
 # Get Domain Age
@@ -177,18 +171,18 @@ def get_domain_ip(domain):
 def analyze_url(event=None):
     url = url_entry.get()
     domain = re.sub(r"https?://(www\.)?", "", url).split('/')[0]
-
+    
     # Fetch domain details
     domain_age_result = get_domain_age(domain)
     domain_ip_result = get_domain_ip(domain)  # Get IP address of domain
     google_result = check_google_safebrowsing(url)
     vt_result = check_virustotal(url)
     ioc_result = check_ioc_search(url)
-
+    
     # Display results
     result_text.delete(1.0, tk.END)
     result_text.insert(tk.END, f"{google_result}\n{vt_result}\n{ioc_result}\n{domain_age_result}\n{domain_ip_result}\n")
-
+    
     # Highlight warnings in red
     if "⚠️" in google_result or "⚠️" in vt_result or "⚠️" in ioc_result:
         result_text.config(fg="red")
@@ -219,7 +213,7 @@ url_entry.pack(pady=10)
 url_entry.bind("<Return>", analyze_url)
 
 # Result display (Larger text box)
-result_text = tk.Text(root, width=90, height=20, font=("Helvetica", 12))  # Bigger output window
+result_text = tk.Text(root, width=90, height=15, font=("Helvetica", 12))  # Bigger output window
 result_text.pack(pady=20)
 
 # Run the application
