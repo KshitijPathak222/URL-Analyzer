@@ -9,11 +9,17 @@ import validators
 import tkinter as tk
 from tkinter import messagebox
 import http.client
+import os
 
-# API Keys
-GOOGLE_API_KEY = "AIzaSyBoexKhwjgFBqA7hFGoD7hwc9gYmuCaex4"
-VT_API_KEY = "58914edf2c51b13146f794c79b8b5783c9fe02ccf17085137107d6ce26b6d540"
-IOC_API_KEY = "14fd94f931msh7a594545965681cp1f1d88jsna0d931bf194c"
+from dotenv import load_dotenv
+
+# Load secrets from .env file
+load_dotenv()
+
+# Fetch the API keys from environment variables
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+VT_API_KEY = os.getenv("VT_API_KEY")
+IOC_API_KEY = os.getenv("IOC_API_KEY")
 
 # Define suspicious URL patterns
 SUSPICIOUS_PATTERNS = [
